@@ -1,0 +1,9 @@
+{
+  "name": "scrum-team",
+  "version": "0.1.0",
+  "description": "PM+Plane Scrum 流水线：7 个子智能体（story-slicer/implementer/spec-reviewer/code-quality-reviewer/qa-acceptance/plane-scribe/vision-intent-reader）+ scrum-loop 编排 skill + Plane API CLI + Codex 两段评审脚本。任意项目可用。",
+  "author": "eleven16k",
+  "agents": "agents",
+  "skills": "skills",
+  "commands": "commands"
+}
