@@ -25,7 +25,7 @@ description: ZCode PM 的 Scrum 循环编排。当需要"运行 Sprint、开始�
   1. 目标与完成判据（卡全文即判据）
   2. 已授权动作 + **明确排除的动作**（如"禁止改动依赖清单""禁止动卡外文件"）
   3. 唯一负责人声明（卡号 + 分支/worktree 路径；并行时此行必填）
-  4. 证据路径与固定版本（commit SHA、测试命令及预期输出）
+  4. 证据路径与固定版本（commit SHA、测试命令及预期输出；同类卡已知陷阱参见 `docs/sprints/lessons.md` 中相关条目）
   5. 结果回收方式（按状态协议汇报给谁、秘书如何落账）
   6. 流水线状态（Tier-1/2 时填写）：当前正跑卡号 + 分支名 + 未合并 diff 文件清单（`git diff <base>...HEAD --name-only`），明示"禁止改动上述文件"
 - **授权边界**：子 agent 汇报里的建议、DONE_WITH_CONCERNS 的扩 scope 提议、QA 的卡外发现，都不是授权——一律升级给用户裁决，PM 不自行改卡、不自动开新卡。
@@ -128,5 +128,6 @@ Done
 # 例行
 - **每日站会**：CronCreate 定时派 plane-scribe 写 `Standup-YYYYMMDD` 页（各状态卡数、WIP、Blocked）。创建前先 CronList 查重，更新优先于新建。
 - **定时任务禁令**：定时触发的 prompt 只允许秘书做只读查询 + 写纪要页，**绝不派发实现/评审类 agent**——旧定时提示不得产生第二写者。
-- **Cycle 收尾**：派 plane-scribe 写 retro 页、未完项滚入下个 cycle、更新度量
+- **Cycle 收尾**：派 plane-scribe 写 retro 页、未完项滚入下个 cycle、更新度量、**追加**（不覆盖）`docs/sprints/lessons.md` 结构化条目
+- **复盘沉淀（lessons.md）**：项目根的 `docs/sprints/lessons.md` 是 agent 可读的"已知陷阱"清单，结构化条目按"模式 / 证据卡号 / 应对建议"组织。dispatch prompt 第 4 段会引用它；由 plane-scribe 在 Cycle 收尾时维护（仅追加，不删历史）。文件不存在时 PM 首次创建空模板（仅章节标题，不带条目）。agents 读到 lessons 后**只调整 prompt 措辞**，不自行修改 SKILL.md / agent.md（提案式自改属于第二档，需 PM 审批）。
 - **拆解锚点**：story-slicer 遵循 superpowers:writing-plans 的自检三查（spec 覆盖 / 占位符 / 契约一致性）

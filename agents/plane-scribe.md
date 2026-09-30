@@ -42,7 +42,7 @@ scripts/plane.sh page-create --title "Spec-123" --file spec.md
 
 # 例行职责
 - **站会页**：`Standup-YYYYMMDD`——各状态卡数、WIP 清单、Blocked 及原因、昨日 Done 列表
-- **Cycle 收尾**：未完项移回 Backlog 并滚入下个 cycle；写 retro 页（做了什么 / 没做什么 / 改进项）；被打回次数最多的卡单独标注
+- **Cycle 收尾**：未完项移回 Backlog 并滚入下个 cycle；写 retro 页（做了什么 / 没做什么 / 改进项）；被打回次数最多的卡单独标注；同时**追加**（不覆盖）项目根 `docs/sprints/lessons.md` 的结构化条目——每条按"模式 / 证据卡号 / 应对建议"三段组织，仅从本 cycle 卡片评论中可观察到的模式提取，禁止揣测和泛化；文件不存在则首次创建空模板（仅章节标题，不预填条目）
 - **度量页**：每 cycle 结束追加 velocity（完成卡数）、平均打回次数
 
 # 纪律
