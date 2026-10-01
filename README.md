@@ -1,6 +1,6 @@
 # scrum-team
 
-ZCode 上的 PM-编排型 Scrum 流水线：把"拆需求 → 派发实现 → 两段评审 → QA 验收"做成可复用的工作流，跑在 Plane 看板之上。
+PM-编排型 Scrum 流水线，Agent IDE 友好：以 [ZCode](https://github.com/zcode-ai/zcode) 为一等公民，但 agent prompt / skill 规约 / 脚本本身与 IDE 无关，可移植到任何支持 markdown agent 的 IDE（Claude Code、Cursor、Aider、Continue 等）。把"拆需求 → 派发实现 → 两段评审 → QA 验收"做成可复用的工作流，跑在 Plane 看板之上。
 
 主会话充当 PM（产品经理），不写业务代码也不直接调 Plane；所有写操作经 `plane-scribe`，所有实现经 `implementer`，所有验收经 `qa-acceptance`。Codex CLI 提供跨厂商评审，避免"自己审自己"。
 
@@ -10,7 +10,7 @@ ZCode 上的 PM-编排型 Scrum 流水线：把"拆需求 → 派发实现 → �
 
 ```
                         ┌─────────────────────────────┐
-                        │      ZCode 主会话（PM）     │
+                        │   主会话（PM，任意 agent IDE）│
                         │  · 派发                     │
                         │  · 守门禁                   │
                         │  · 不写业务代码             │
@@ -46,8 +46,8 @@ ZCode 上的 PM-编排型 Scrum 流水线：把"拆需求 → 派发实现 → �
 
 | 依赖 | 说明 |
 |---|---|
-| [ZCode](https://github.com/zcode-ai/zcode) | 运行本插件的客户端 |
-| [superpowers](https://github.com/obra/superpowers) ZCode 插件 | 提供 TDD 铁律、subagent-driven-development 等基础规则，MIT 协议 |
+| Agent IDE | 任何支持 markdown agent + skill 描述文件的客户端都可运行；ZCode 提供零配置加载与子智能体管理，其他 IDE 见下方"可移植性"小节 |
+| [superpowers](https://github.com/obra/superpowers)（或同等的 TDD + subagent 纪律来源） | 提供 TDD 铁律、subagent-driven-development 等基础规则，MIT 协议 |
 | [Plane](https://plane.so) 账号 + Personal Access Token | 看板与状态机后端 |
 | [Codex CLI](https://github.com/openai/codex) 0.142+ | 两段评审的执行器；未安装时自动回退到子智能体路径 |
 | `curl`、`jq`、`git`、`bash` | `scripts/plane.sh` 和 `scripts/codex-review.sh` 的依赖 |
@@ -182,11 +182,38 @@ scrum-team/
 └── hooks/                 # 可选 hooks
 ```
 
-修改 `agents/*.md` 或 `skills/scrum-loop/SKILL.md` 后，**无需重启**——ZCode 会在下次派发该子 agent 时重新加载。
+修改 `agents/*.md` 或 `skills/scrum-loop/SKILL.md` 后无需重启 IDE——主流 agent IDE 都会在下次派发时重新加载文件。
 
-新增子 agent：在 `agents/` 下放 `<name>.md`（frontmatter 至少含 `name`、`description`、`color`），然后在 `skills/scrum-loop/SKILL.md` 的子智能体速查表里登记。
+新增子 agent：在 `agents/` 下放 `<name>.md`（frontmatter 至少含 `name` 和 `description`；ZCode 还会读 `model` / `color`），然后在 `skills/scrum-loop/SKILL.md` 的子智能体速查表里登记。
 
 新增评审 rubric：在 `agents/spec-reviewer.md` 或 `code-quality-reviewer.md` 里追加条目，`scripts/codex-review.sh` 会自动从正文抽取。
+
+---
+
+## 可移植性
+
+本仓库以 ZCode 插件的形式打包，但**核心内容是 IDE 无关的**——任何支持 markdown agent + skill 描述文件的 agent IDE 都能运行。ZCode 与其他 IDE 的差异只在打包方式与加载约定，agent 自身的 prompt、状态机、并发策略都不依赖 ZCode。
+
+### 各部件的可移植性
+
+| 部件 | 可移植 | 说明 |
+|---|---|---|
+| `agents/*.md` 正文（system prompt） | ✅ | 标准 markdown，IDE 无关 |
+| `agents/*.md` frontmatter | ⚠️ | 各 IDE schema 不同；一般保留 `name` / `description` 即可 |
+| `skills/scrum-loop/SKILL.md` 正文 | ✅ | 标准 markdown，IDE 无关 |
+| `skills/scrum-loop/SKILL.md` frontmatter | ⚠️ | 同上 |
+| `scripts/plane.sh` / `scripts/codex-review.sh` | ✅ | 纯 bash，无 IDE 耦合 |
+| `.zcode-plugin/plugin.json` | ❌ | ZCode 专属 manifest，其他 IDE 不识别 |
+| `commands/` / `hooks/` | ⚠️ | ZCode 约定，其他 IDE 有各自的命令/钩子规范 |
+
+### 在其他 IDE 中的最小迁移路径
+
+1. **复用 7 个 agent 的正文**——按目标 IDE 的 frontmatter 约定（一般保留 `name` 和 `description`）改写 YAML，然后注册为 subagent。
+2. **加载 `skills/scrum-loop/SKILL.md` 的正文**——作为主会话的工作流规约，或一个 slash command 的 system prompt，主会话按这份规约派发。
+3. **直接调用两个脚本**——`scripts/plane.sh` 和 `scripts/codex-review.sh` 是纯 bash，按 IDE 的 shell 工具调用即可。
+4. **集中 Plane 写权限**——本流水线假设 Plane 的所有写操作集中在主会话（"PM 经 plane-scribe"），其他 IDE 同样建议这么做；不要让 subagent 各自持有 `PLANE_API_KEY`。
+
+主循环、状态机、并发策略这些核心规约与 IDE 无关——任何"能在主会话派发 subagent + 调用 shell 脚本"的 agent IDE 都能跑这套流水线。
 
 ---
 
