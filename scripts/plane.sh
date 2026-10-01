@@ -6,6 +6,11 @@
 #   PLANE_WORKSPACE   必填，workspace slug
 #   PLANE_PROJECT_ID  大多数命令必填（projects 命令除外）
 #   PLANE_BASE_URL    可选，默认 https://api.plane.so（自部署改此处）
+#   PLANE_ENV_FILE    可选，指向一个 shell 片段，脚本会在 set -a 下 source 它，
+#                     适合自部署用户把 PLANE_API_KEY / PLANE_WORKSPACE 集中放一处
+if [ -n "${PLANE_ENV_FILE:-}" ] && [ -r "$PLANE_ENV_FILE" ]; then
+  set +e; set -a; . "$PLANE_ENV_FILE"; set +a; set -e
+fi
 set -euo pipefail
 
 BASE="${PLANE_BASE_URL:-https://api.plane.so}"
