@@ -29,6 +29,7 @@ description: ZCode PM 的 Scrum 循环编排。当需要"运行 Sprint、开始�
   5. 结果回收方式（按状态协议汇报给谁、秘书如何落账）
   6. 流水线状态（Tier-1/2 时填写）：当前正跑卡号 + 分支名 + 未合并 diff 文件清单（`git diff <base>...HEAD --name-only`），明示"禁止改动上述文件"
 - **授权边界**：子 agent 汇报里的建议、DONE_WITH_CONCERNS 的扩 scope 提议、QA 的卡外发现，都不是授权——一律升级给用户裁决，PM 不自行改卡、不自动开新卡。
+- **修复迭代 dispatch-mode**：当派发 implementer 是修复任务（spec review ❌ 重派、QA REJECTED 修复、Codex review 复审），在 prompt 顶部追加 `dispatch-mode: follow-up fix`。implementer 看到该标记后跳过 RED-witness 验证（保留其余测试纪律），节省空转时间。新卡与首次实现不写该标记。
 
 # 主循环（一张卡的完整生命周期）
 
@@ -43,12 +44,14 @@ Todo ──── PM: 选中最高优先卡 →（卡含图片？先派 vision-i
 In Progress ── implementer 报 DONE（附测试输出+提交清单）→ 秘书移 In-Review
   ▼
 In Review ──── 跑 scripts/codex-review.sh spec（rubric 自动提取，附卡文件）
-  │            ✅ → 跑 codex-review.sh quality → ✅ → 秘书移 Testing
+  │            ✅ → 秘书移 Testing（不再等 quality：与 QA 并发，见下方说明）
   │            ❌/FIX_REQUIRED → implementer 修复（带具体 issue 清单重派）→ 复审
   ▼
-Testing ────── 派 qa-acceptance 模式B → ACCEPTED → 秘书核 Done 三门禁 → Done
-  │              └ REJECTED(实现缺陷) → 回 In Progress 循环
-  │              └ REJECTED(验收标准缺陷) → 派 story-slicer 修卡 → 重走
+Testing ────── 并发：跑 scripts/codex-review.sh quality（Codex，读 diff）+ 派 qa-acceptance 模式B（子智能体，跑测试对场景）
+                两路都 ✅ → 秘书核 Done 三门禁 → Done
+                quality ❌ → 回 In Review 复审
+                QA REJECTED(实现缺陷) → 回 In Progress 循环
+                QA REJECTED(验收标准缺陷) → 派 story-slicer 修卡 → 重走
   ▼
 Done
 ```
