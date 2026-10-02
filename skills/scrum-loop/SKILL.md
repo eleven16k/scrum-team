@@ -30,6 +30,10 @@ description: ZCode PM 的 Scrum 循环编排。当需要"运行 Sprint、开始�
   6. 流水线状态（Tier-1/2 时填写）：当前正跑卡号 + 分支名 + 未合并 diff 文件清单（`git diff <base>...HEAD --name-only`），明示"禁止改动上述文件"
 - **授权边界**：子 agent 汇报里的建议、DONE_WITH_CONCERNS 的扩 scope 提议、QA 的卡外发现，都不是授权——一律升级给用户裁决，PM 不自行改卡、不自动开新卡。
 - **修复迭代 dispatch-mode**：当派发 implementer 是修复任务（spec review ❌ 重派、QA REJECTED 修复、Codex review 复审），在 prompt 顶部追加 `dispatch-mode: follow-up fix`。implementer 看到该标记后跳过 RED-witness 验证（保留其余测试纪律），节省空转时间。新卡与首次实现不写该标记。
+- **按卡复杂度路由模型**：在 prompt 顶部按以下信号标注 `dispatch-mode: mechanical` / `high-reasoning`（其余走默认 implementer）：
+  - **`mechanical`** —— 卡只改 1~2 个文件、规约完整、无集成、无设计决策。机械实现，TDD 收敛已足够。**当前为占位标记**：后续可接 `implementer-fast` agent 或更轻模型；现在 PM 在 dispatch 笔记里记录，agent 行为不变。
+  - **`high-reasoning`** —— 跨模块重构、安全敏感、依赖复杂、需深判断。PM 临时把 implementer frontmatter 改回 `GLM-5.3$high`（可逆）或用更强模型重派。
+  - 不写任何标记 = 默认档（GLM-5.3 默认推理档），已能覆盖大多数实现任务。
 
 # 主循环（一张卡的完整生命周期）
 
