@@ -79,6 +79,16 @@ state_id() {
   echo "$id"
 }
 
+issue_exists() { # 语义校验：issue-id 是否真实存在；避免无效 PATCH/POST 静默失败（避免把不存在的卡误置状态）
+  local id="$1" code
+  code=$(curl -sS -o /dev/null -w "%{http_code}" -X GET "$API/projects/$PID/issues/$id/" "${AUTH[@]}")
+  [[ "$code" == "200" ]]
+}
+
+valid_priority() { # 语义校验：priority 必须是 Plane 定义的 5 档之一
+  case "$1" in urgent|high|medium|low|none) return 0;; *) return 1;; esac
+}
+
 html_wrap() { # 纯文本 → <pre> 保留换行
   jq -Rn --arg t "$1" '("<pre>" + $t + "</pre>")'
 }
@@ -124,6 +134,7 @@ case "$cmd" in
       esac
     done
     [[ -n "$local_title" ]] || { echo "错误: --title 必填" >&2; exit 1; }
+    valid_priority "$pr" || { echo "错误: --priority 必须是 urgent/high/medium/low/none 之一，当前: $pr" >&2; exit 1; }
     body=$(jq -n --arg n "$local_title" --argjson d "$(html_wrap "$desc")" --arg p "$pr" \
       '{name:$n, description_html:$d, priority:$p}')
     [[ -n "$st" ]] && body=$(jq -c --arg s "$(state_id "$st")" '. + {state:$s}' <<<"$body")
@@ -148,6 +159,7 @@ case "$cmd" in
   issue-move)
     req_pid
     [[ $# -eq 2 ]] || { echo "用法: issue-move <issue-id> <状态名>" >&2; exit 1; }
+    issue_exists "$1" || { echo "错误: issue-id \"$1\" 不存在（issue-get 后查真实 ID）" >&2; exit 4; }
     sid=$(state_id "$2") # 先解析后 PATCH：解析失败必须中止，禁止空 state 的 PATCH（会误置回 Backlog）
     api PATCH "/projects/$PID/issues/$1/" "$(jq -n --arg s "$sid" '{state:$s}')" \
       | jq '{id, name, state}'

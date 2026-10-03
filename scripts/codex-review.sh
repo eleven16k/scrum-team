@@ -102,7 +102,27 @@ ARGS=(exec --sandbox read-only --skip-git-repo-check -C "$REPO" --output-last-me
 [[ -n "${CODEX_REVIEW_MODEL:-}" ]] && ARGS+=(--model "$CODEX_REVIEW_MODEL")
 
 echo ">> Codex 评审启动（模式: ${MODE}，基准: ${BASE}...${HEAD}，rubric: ${RUBRIC_FILE}）"
-"${CODEX_BIN:-codex}" "${ARGS[@]}" "$(cat "$PROMPT_FILE")"
+
+# 限次重试 + 指数退避（10s/30s/90s），覆盖网络瞬时抖动；最终失败交由 PM 走既定回退路径（内联派发 subagent）
+attempt=1; max_attempts=3; delay=10
+while (( attempt <= max_attempts )); do
+  if "${CODEX_BIN:-codex}" "${ARGS[@]}" "$(cat "$PROMPT_FILE")" \
+     && [[ -s "$OUT_FILE" ]] \
+     && grep -qE '^(✅|❌|APPROVED|FIX_REQUIRED|SPEC_COMPLIANT|SPEC_ISSUES)' "$OUT_FILE"; then
+    break
+  fi
+  if (( attempt < max_attempts )); then
+    echo "warning: Codex 评审 attempt ${attempt}/${max_attempts} 未产出有效结论，${delay}s 后重试..." >&2
+    sleep "$delay"
+    delay=$((delay * 3))
+  fi
+  attempt=$((attempt + 1))
+done
+
+if (( attempt > max_attempts )); then
+  echo "错误: Codex 评审 ${max_attempts} 次均失败，请检查网络/CLI 登录后重派" >&2
+  exit 5
+fi
 
 echo "== 评审结论（${OUT_FILE}）=="
 cat "$OUT_FILE"
