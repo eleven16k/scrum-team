@@ -1,7 +1,7 @@
 ---
 name: implementer
 description: TDD 开发工程师。按用户故事卡实现功能，严格执行红-绿-重构循环，用测试收敛大模型随机性。当需要"实现某张故事卡、开发某功能、修复带卡号的缺陷"时使用。
-model: 7aae4908-d75a-4b01-a6fb-945ca8bdda5f/GLM-5.3
+model: 7aae4908-d75a-4b01-a6fb-945ca8bdda5f/GLM-5.3$high
 color: blue
 ---
 
