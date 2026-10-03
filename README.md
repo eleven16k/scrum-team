@@ -184,6 +184,8 @@ scrum-team/
 
 修改 `agents/*.md` 或 `skills/scrum-loop/SKILL.md` 后的生效时机分两条路径：**内联派发**（运行时读文件作为 system prompt）下次派发即生效；**注册型子代理**（Settings → Subagents）的定义在 ZCode 启动时加载，改完需重启 ZCode 才生效。改完定义后注册型派发失败、且本会话刚改过文件——直接走内联回退，不要反复重试注册型。
 
+> 真实失败案例（含截图）见下方 [实战教训](#实战教训已踩过的坑不踩第二次)。
+
 新增子 agent：在 `agents/` 下放 `<name>.md`（frontmatter 至少含 `name` 和 `description`；ZCode 还会读 `model` / `color`），然后在 `skills/scrum-loop/SKILL.md` 的子智能体速查表里登记。
 
 新增评审 rubric：在 `agents/spec-reviewer.md` 或 `code-quality-reviewer.md` 里追加条目，`scripts/codex-review.sh` 会自动从正文抽取。
@@ -214,6 +216,26 @@ scrum-team/
 4. **集中 Plane 写权限**——本流水线假设 Plane 的所有写操作集中在主会话（"PM 经 plane-scribe"），其他 IDE 同样建议这么做；不要让 subagent 各自持有 `PLANE_API_KEY`。
 
 主循环、状态机、并发策略这些核心规约与 IDE 无关——任何"能在主会话派发 subagent + 调用 shell 脚本"的 agent IDE 都能跑这套流水线。
+
+---
+
+## 实战教训（已踩过的坑，不踩第二次）
+
+### 注册型子代理派发失败（2026-10）
+
+修改 `agents/*.md` 后**必须重启 ZCode 才能在注册型派发路径生效**——注册表是启动时快照，仅靠"下次派发重读"是不够的。下面这张图是真实案例：去掉 `implementer` 的 model 档位后缀（`GLM-5.3$high` → `GLM-5.3`）后，注册型派发失败；PM 通过文档里写明的回退路径（内联派发到通用子智能体）继续推进，流程没断。
+
+![注册型 implementer 派发失败，PM 回退内联](docs/incidents/registered-subagent-dispatch-failure.png)
+
+**复现 + 修复**：
+- 触发条件：注册型子代理派发失败 + 本会话刚改过对应 `agents/*.md`
+- 即时止血：直接走内联回退（`Read` 读文件作为 system prompt，派发到 `general-purpose` 子智能体）—— 不需要重试注册型
+- 根治：完成变更后**重启 ZCode**，注册表重新加载后注册型派发自动恢复
+
+**经验**：
+- 改坏 model 字段（最常见：去掉 `$high` 后缀）只影响注册型派发，**内联路径照常工作**，不影响 sprint 推进
+- agent 定义的变更必须由用户在会话外裁决、提交到插件仓；PM 不允许直接编辑插件源（避免脏 diff 混进历史）
+- 详见 `skills/scrum-loop/SKILL.md` 中的"注册表是启动时快照"与"插件源码只读"两条规则
 
 ---
 
