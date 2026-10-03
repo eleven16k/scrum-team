@@ -182,7 +182,7 @@ scrum-team/
 └── hooks/                 # 可选 hooks
 ```
 
-修改 `agents/*.md` 或 `skills/scrum-loop/SKILL.md` 后无需重启 IDE——主流 agent IDE 都会在下次派发时重新加载文件。
+修改 `agents/*.md` 或 `skills/scrum-loop/SKILL.md` 后的生效时机分两条路径：**内联派发**（运行时读文件作为 system prompt）下次派发即生效；**注册型子代理**（Settings → Subagents）的定义在 ZCode 启动时加载，改完需重启 ZCode 才生效。改完定义后注册型派发失败、且本会话刚改过文件——直接走内联回退，不要反复重试注册型。
 
 新增子 agent：在 `agents/` 下放 `<name>.md`（frontmatter 至少含 `name` 和 `description`；ZCode 还会读 `model` / `color`），然后在 `skills/scrum-loop/SKILL.md` 的子智能体速查表里登记。
 

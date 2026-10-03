@@ -18,6 +18,7 @@ description: ZCode PM 的 Scrum 循环编排。当需要"运行 Sprint、开始�
 
 **派发纪律**（关键）：
 - 子 agent 是全新会话，**必须把上下文全文放进派发 prompt**。禁止只给文件路径让子 agent 自己找（subagent-driven-development 红线）。若子 agent 未注册到 Settings → Subagents，用 Read 读对应 agent 定义文件，把正文作为 system prompt 内联进 Agent 派发。
+- **注册表是启动时快照**：注册型子代理的定义在 ZCode 启动时加载，会话中修改 `agents/*.md` 对注册型派发**不生效**（需重启才刷新）；内联路径每次 Read 最新文件、始终即时生效。注册型派发失败且本会话刚改过定义文件时，直接走内联回退，不要反复重试注册型。
 - **模型路由（图片）**：卡含图片附件、UI 截图或设计稿路径（先落盘到 `docs/sprints/assets/`）→ 派 vision-intent-reader（GLM-5.3-flash）把图片意图转写进卡文件。**识别完成后，该卡的全部实现、修复、续作一律派 implementer（GLM-5.3）——编码永不使用 flash，flash 只做意图识别**。
 - **派前查重**：派发前先查新鲜状态（`scripts/plane.sh issue-list --state <当前状态>`），确认该卡不在执行中、无人认领，防止重复派遣。
 - **四态区分**：已发送 ≠ 已接收 ≠ 执行中 ≠ 已验证完成。Agent 调用回执只证明"已发送"；Plane 状态（秘书落账）才是唯一权威进度，不凭回执汇报完成。
@@ -29,6 +30,7 @@ description: ZCode PM 的 Scrum 循环编排。当需要"运行 Sprint、开始�
   5. 结果回收方式（按状态协议汇报给谁、秘书如何落账）
   6. 流水线状态（Tier-1/2 时填写）：当前正跑卡号 + 分支名 + 未合并 diff 文件清单（`git diff <base>...HEAD --name-only`），明示"禁止改动上述文件"
 - **授权边界**：子 agent 汇报里的建议、DONE_WITH_CONCERNS 的扩 scope 提议、QA 的卡外发现，都不是授权——一律升级给用户裁决，PM 不自行改卡、不自动开新卡。
+- **插件源码只读**：PM 发现 agent 定义或规约本身有问题（model 字段、门禁漏洞、规约缺失）时，只允许走内联回退维持流程 + 升级给用户，**禁止直接修改 `agents/*.md`、`SKILL.md` 等插件源文件**——插件仓变更一律由用户裁决（实战教训：PM 为修派发失败直接改 implementer 的 model 字段，造成注册表与文件不一致 + 脏 diff 混入插件仓历史）。
 - **修复迭代 dispatch-mode**：当派发 implementer 是修复任务（spec review ❌ 重派、QA REJECTED 修复、Codex review 复审），在 prompt 顶部追加 `dispatch-mode: follow-up fix`。implementer 看到该标记后跳过 RED-witness 验证（保留其余测试纪律），节省空转时间。新卡与首次实现不写该标记。
 - **按卡复杂度路由模型**：在 prompt 顶部按以下信号标注 `dispatch-mode: mechanical` / `high-reasoning`（其余走默认 implementer）：
   - **`mechanical`** —— 卡只改 1~2 个文件、规约完整、无集成、无设计决策。机械实现，TDD 收敛已足够。**当前为占位标记**：后续可接 `implementer-fast` agent 或更轻模型；现在 PM 在 dispatch 笔记里记录，agent 行为不变。
