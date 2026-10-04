@@ -9,6 +9,8 @@
 # 环境变量: CODEX_BIN（默认 codex）、CODEX_REVIEW_MODEL（可选，透传 --model）
 set -euo pipefail
 
+CODEX_BIN="${CODEX_BIN:-codex}"
+
 usage() {
   echo "用法: codex-review.sh <spec|quality> --repo <项目路径> --card <卡文件.md> [--base main] [--head HEAD]" >&2
     exit 1
@@ -101,15 +103,44 @@ OUT_FILE="${TMP}.verdict.md"
 ARGS=(exec --sandbox read-only --skip-git-repo-check -C "$REPO" --output-last-message "$OUT_FILE")
 [[ -n "${CODEX_REVIEW_MODEL:-}" ]] && ARGS+=(--model "$CODEX_REVIEW_MODEL")
 
+# 预检：Codex CLI 在 PATH、版本足、API key 提示
+if ! command -v "$CODEX_BIN" >/dev/null 2>&1; then
+  echo "错误: Codex CLI 未找到（PATH 里没有 ${CODEX_BIN}）。安装: https://github.com/openai/codex" >&2
+  echo "提示: PM 应改用 general-purpose 子智能体内联 rubric 派发评审任务，绕过 Codex。" >&2
+  exit 4
+fi
+CODEX_VERSION="$("$CODEX_BIN" --version 2>/dev/null || echo unknown)"
+echo ">> Codex 版本: ${CODEX_VERSION}"
+CODEX_MINOR="$(echo "$CODEX_VERSION" | sed -nE 's/^0\.([0-9]+).*/\1/p')"
+if [[ -n "$CODEX_MINOR" && "$CODEX_MINOR" =~ ^[0-9]+$ ]] && (( CODEX_MINOR < 142 )); then
+  echo "warning: Codex 版本 < 0.142（推荐升级），旧版可能不识别 exec 子命令的新参数。" >&2
+fi
+if [[ -z "${OPENAI_API_KEY:-}" ]]; then
+  echo "info: OPENAI_API_KEY 未设；依赖 'codex login' 存储凭据。反复 401 时运行 'codex login' 重登。" >&2
+fi
+
+LOG_FILE="${TMP}.log"
 echo ">> Codex 评审启动（模式: ${MODE}，基准: ${BASE}...${HEAD}，rubric: ${RUBRIC_FILE}）"
 
-# 限次重试 + 指数退避（10s/30s/90s），覆盖网络瞬时抖动；最终失败交由 PM 走既定回退路径（内联派发 subagent）
+# 限次重试 + 智能分诊：默认 10s/30s/90s；命中 429 切长退避 60s/180s/540s；命中 401/403 立即放弃
+# 最终失败交由 PM 走既定回退路径（内联派发 subagent）
 attempt=1; max_attempts=3; delay=10
 while (( attempt <= max_attempts )); do
-  if "${CODEX_BIN:-codex}" "${ARGS[@]}" "$(cat "$PROMPT_FILE")" \
+  if "${CODEX_BIN}" "${ARGS[@]}" "$(cat "$PROMPT_FILE")" >"$LOG_FILE" 2>&1 \
      && [[ -s "$OUT_FILE" ]] \
      && grep -qE '^(✅|❌|APPROVED|FIX_REQUIRED|SPEC_COMPLIANT|SPEC_ISSUES)' "$OUT_FILE"; then
     break
+  fi
+  # 凭据问题 → 立即放弃（重试无意义）
+  if grep -qE '401|403|unauthorized|forbidden|invalid.*api[_-]?key|authentication' "$LOG_FILE" 2>/dev/null; then
+    echo "错误: Codex 报凭据问题（401/403）。请运行 'codex login' 或检查 OPENAI_API_KEY。日志: ${LOG_FILE}" >&2
+    echo "提示: PM 应改用 general-purpose 子智能体内联 rubric 派发评审任务，绕过 Codex。" >&2
+    exit 8
+  fi
+  # 限流 → 重置为长退避基准
+  if grep -qE '429|rate[ _-]?limit|quota[ _-]?exceeded|too many requests' "$LOG_FILE" 2>/dev/null; then
+    echo "warning: Codex 报限流（429），改用长退避..." >&2
+    delay=60
   fi
   if (( attempt < max_attempts )); then
     echo "warning: Codex 评审 attempt ${attempt}/${max_attempts} 未产出有效结论，${delay}s 后重试..." >&2
@@ -120,7 +151,8 @@ while (( attempt <= max_attempts )); do
 done
 
 if (( attempt > max_attempts )); then
-  echo "错误: Codex 评审 ${max_attempts} 次均失败，请检查网络/CLI 登录后重派" >&2
+  echo "错误: Codex 评审 ${max_attempts} 次均失败。请检查：① 'codex login status' ② OPENAI_API_KEY 有效性 ③ OpenAI 服务状态 ④ 网络（公司网络/VPN 可能拦截 OpenAI API）。日志: ${LOG_FILE}" >&2
+  echo "提示: PM 应改用 general-purpose 子智能体内联 rubric 派发评审任务，绕过 Codex。" >&2
   exit 5
 fi
 
