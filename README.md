@@ -48,9 +48,58 @@ PM-编排型 Scrum 流水线，Agent IDE 友好：以 [ZCode](https://github.com
 |---|---|
 | Agent IDE | 任何支持 markdown agent + skill 描述文件的客户端都可运行；ZCode 提供零配置加载与子智能体管理，其他 IDE 见下方"可移植性"小节 |
 | [superpowers](https://github.com/obra/superpowers)（或同等的 TDD + subagent 纪律来源） | 提供 TDD 铁律、subagent-driven-development 等基础规则，MIT 协议 |
-| [Plane](https://plane.so) 账号 + Personal Access Token | 看板与状态机后端 |
+| [Plane](https://plane.so) 账号 + Personal Access Token | 看板与状态机后端；SaaS 或自部署均可，详见下方[部署 Plane](#部署-plane看板后端) |
 | [Codex CLI](https://github.com/openai/codex) 0.142+ | 两段评审的执行器；未安装时自动回退到子智能体路径 |
 | `curl`、`jq`、`git`、`bash` | `scripts/plane.sh` 和 `scripts/codex-review.sh` 的依赖 |
+
+---
+
+## 部署 Plane（看板后端）
+
+Plane 是本流水线的看板后端，两种部署方式二选一。
+
+### 选项 1：SaaS（最快上手）
+
+1. 在 [plane.so](https://plane.so) 注册账号，建一个 workspace
+2. 进 **Profile Settings → Personal Access Tokens**，生成 API Key
+3. 从 URL 复制 workspace slug（路径里的 `<workspace>/...` 段）
+4. 设环境变量：
+   ```bash
+   export PLANE_API_KEY="<token>"
+   export PLANE_WORKSPACE="<slug>"
+   export PLANE_PROJECT_ID="<项目 ID>"
+   ```
+5. 跑 `scripts/plane.sh projects` 验证连通
+
+### 选项 2：自部署（数据自主 + 内网可用）
+
+Plane 是开源的：[github.com/makeplane/plane](https://github.com/makeplane/plane)
+
+官方推荐 Docker Compose / Kubernetes 部署，详细步骤见 [Self-hosting Guide](https://developers.plane.so/self-hosting/overview)。
+
+自部署后把 `PLANE_BASE_URL` 指向你的实例：
+```bash
+export PLANE_BASE_URL="https://plane.your-domain.com"
+export PLANE_API_KEY="<your-token>"
+export PLANE_WORKSPACE="<your-workspace>"
+export PLANE_PROJECT_ID="<your-project-id>"
+```
+
+### 凭据集中管理（可选）
+
+把上述 `export` 行集中到一个 shell 片段，用 `PLANE_ENV_FILE` 让 `scripts/plane.sh` 自动 source：
+```bash
+export PLANE_ENV_FILE="$HOME/.config/plane.env"  # 内容如上面 export 四行
+```
+
+### 排错
+
+```bash
+scripts/plane.sh projects  # 应列出你的项目
+scripts/plane.sh states    # 应列出项目状态机
+```
+
+任何步骤失败，脚本会给出明确错误（`需要 PLANE_*` / `状态不存在` / `issue-id 不存在` / HTTP 状态码），直接对照排查。
 
 ---
 
