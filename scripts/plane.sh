@@ -13,6 +13,34 @@ if [ -n "${PLANE_ENV_FILE:-}" ] && [ -r "$PLANE_ENV_FILE" ]; then
 fi
 set -euo pipefail
 
+# 项目级配置自动发现：从 $PWD 向上找 .zcode/.env（最多 6 层），source 后注入 PLANE_* 变量
+# 优先级：全局 env > $PLANE_ENV_FILE > 项目 .zcode/.env > 默认值；只补未设置的变量，全局 env 优先（账号级 key 不被项目文件覆盖）
+if [ -z "${PLANE_ENV_FILE:-}" ]; then
+  _search_dir="${PWD:-.}"
+  for _i in 1 2 3 4 5 6; do
+    if [ -r "$_search_dir/.zcode/.env" ]; then
+      while IFS= read -r _env_line; do
+        if [[ "$_env_line" =~ ^[[:space:]]*(export[[:space:]]+)?(PLANE_[A-Za-z0-9_]*)=(.*)$ ]]; then
+          _env_key="${BASH_REMATCH[2]}"
+          _env_val="${BASH_REMATCH[3]}"
+          # 去掉首尾单/双引号
+          _env_val="${_env_val#\"}"; _env_val="${_env_val%\"}"
+          _env_val="${_env_val#\'}"; _env_val="${_env_val%\'}"
+          # 仅当未设置时导出（全局 env 优先）
+          if [ -z "${!_env_key+x}" ]; then
+            printf -v "$_env_key" '%s' "$_env_val"
+            export "$_env_key"
+          fi
+        fi
+      done < "$_search_dir/.zcode/.env"
+      break
+    fi
+    [ "$_search_dir" = "/" ] && break
+    _search_dir="$(dirname "$_search_dir")"
+  done
+  unset _search_dir _i _env_line _env_key _env_val
+fi
+
 BASE="${PLANE_BASE_URL:-https://api.plane.so}"
 WS="${PLANE_WORKSPACE:?need PLANE_WORKSPACE}"
 API="$BASE/api/v1/workspaces/$WS"

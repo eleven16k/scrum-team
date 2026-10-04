@@ -92,6 +92,21 @@ export PLANE_PROJECT_ID="<your-project-id>"
 export PLANE_ENV_FILE="$HOME/.config/plane.env"  # 内容如上面 export 四行
 ```
 
+### 多项目切换（项目级配置 · 推荐）
+
+一人多项目或一账号多 workspace 时，避免每次手动改 `PLANE_PROJECT_ID`。在每个项目根放 `.zcode/.env`：
+
+```bash
+# /Users/me/projects/foo/.zcode/.env
+PLANE_PROJECT_ID="abc123def456"
+# 可选：自部署实例覆盖
+# PLANE_BASE_URL="https://plane.corp.example.com"
+```
+
+`scripts/plane.sh` 在你 `cd` 进项目时自动向上找 `.zcode/.env`（最多 6 层），source 后注入 `PLANE_*` 变量。**全局 env 优先**——`.zcode/.env` 只补未设置的变量，所以账号级 `PLANE_API_KEY` / `PLANE_WORKSPACE` 仍可放全局，per-project `PLANE_PROJECT_ID` 放文件。切项目就 `cd`，无需改 env。
+
+`.zcode/.env` 通常 commit（项目 ID 不是密钥）；**API key 永远不要 commit**——团队分享项目 ID 时自己留 key。
+
 ### 排错
 
 ```bash
